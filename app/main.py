@@ -9,6 +9,7 @@ _DELETED = object()
 @dataclass
 class Node:
     key: Any
+    key_hash: int
     value: Any
 
 
@@ -23,9 +24,9 @@ class Dictionary:
         index, found = self._find_slot(key)
 
         if found:
-            self.nodes[index].value = value  # type: ignore
+            self.nodes[index].value = value
         else:
-            self.nodes[index] = Node(key, value)
+            self.nodes[index] = Node(key=key, key_hash=hash(key), value=value)
             self.size += 1
 
     def __getitem__(self, key: Any) -> Any:
@@ -68,17 +69,30 @@ class Dictionary:
         else:
             raise KeyError(f"Key not found: {key}")
 
-    def update(self, other_dict: Dictionary) -> None:
-        for node in other_dict.nodes:
-            if node is not None:
-                self[node.key] = node.value
+    def update(self, other: Any = None, **kwargs) -> None:
+        if other is not None:
+            if hasattr(other, "nodes"):
+                for node in other.nodes:
+                    if node is not None and node is not _DELETED:
+                        self[node.key] = node.value
+            elif hasattr(other, "keys"):
+                for key in other.keys():
+                    self[key] = other[key]
+            else:
+                for key, value in other:
+                    self[key] = value
+
+        for key, value in kwargs.items():
+            self[key] = value
 
     def __iter__(self) -> Any:
-        return iter([node.key for node in self.nodes
-                     if node is not None and node is not _DELETED])
+        for node in self.nodes:
+            if node is not None and node is not _DELETED:
+                yield node.key
 
     def _find_slot(self, key: Any) -> tuple[int, bool]:
-        index = hash(key) % self.capacity
+        h = hash(key)
+        index = h % self.capacity
         original_index = index
         first_deleted = None
 
@@ -92,10 +106,7 @@ class Dictionary:
             if current is _DELETED:
                 if first_deleted is None:
                     first_deleted = index
-
-            if (current is not None
-               and current is not _DELETED
-               and current.key == key):
+            elif current.key_hash == h and current.key == key:
                 return index, True
 
             index = (index + 1) % self.capacity
