@@ -6,7 +6,6 @@ from dataclasses import dataclass
 @dataclass
 class Node:
     key: Any
-    key_hash: int
     value: Any
 
 
@@ -23,8 +22,7 @@ class Dictionary:
         if found:
             self.nodes[index].value = value  # type: ignore
         else:
-            key_hash = hash(key)
-            self.nodes[index] = Node(key, key_hash, value)
+            self.nodes[index] = Node(key, value)
             self.size += 1
 
     def __getitem__(self, key: Any) -> Any:
